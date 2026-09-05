@@ -1,100 +1,71 @@
-# 🚀 CORE BATTLE — Hướng Dẫn Triển Khai (Deployment Guide)
+# 🚀 RUIN OF ODIN — Hướng Dẫn Triển Khai (Deployment Guide)
 
-Tài liệu này hướng dẫn chi tiết các bước triển khai dự án **CORE BATTLE** lên môi trường Production trên Cloud theo đúng kiến trúc của Phase 9 trong `Readme.md`:
-* **Frontend**: Triển khai trên **Vercel**
-* **Backend (WebSocket & Game Engine)**: Triển khai trên **Railway** (hoặc bất kỳ nền tảng Docker Container nào)
+Mã nguồn dự án đã được đẩy lên GitHub chính thức tại:
+🔗 **Repository**: [https://github.com/Dathazayuki/RuinOfOdin](https://github.com/Dathazayuki/RuinOfOdin)
 
----
-
-## 🏗️ Kiến Trúc Production
-
-```text
-       Trình duyệt người dùng (Web Browser)
-                │                 │
-                │ (HTTPS)         │ (WSS WebSocket)
-                ▼                 ▼
-          Vercel (Frontend)    Railway (Backend)
-          React 19 + Vite      Node 22 + Socket.IO Authoritative Engine
-```
+Dự án hỗ trợ kiến trúc **Unified Full-Stack**: Node.js Backend phục vụ luôn toàn bộ Frontend React tĩnh trên cùng một domain và cổng kết nối, giúp việc triển khai 24/7 chỉ cần **1 Service duy nhất**, không gặp lỗi CORS hay lệch WebSocket.
 
 ---
 
-## BƯỚC 1: Triển Khai Backend Lên Railway
+## 🌟 PHƯƠNG ÁN 1: Triển Khai 24/7 Lên Render.com (Miễn Phí & Dễ Nhất - Khuyên Dùng)
 
-### 1.1 Tạo Project trên Railway
-1. Truy cập [Railway.app](https://railway.app/) và đăng nhập (bằng tài khoản GitHub).
-2. Chọn **"New Project"** -> **"Deploy from GitHub repo"**.
-3. Chọn repository chứa mã nguồn dự án **RuneOfOdin**.
-4. Railway sẽ tự động phát hiện file [`railway.toml`](file:///d:/du%20an/RuneOfOdin/railway.toml) và [`Dockerfile`](file:///d:/du%20an/RuneOfOdin/Dockerfile) ở thư mục gốc.
+Render.com cho phép chạy Web Service từ Docker hoàn toàn miễn phí, hỗ trợ WebSocket liên tục và cấp sẵn domain HTTPS (`.onrender.com`).
 
-### 1.2 Thiết lập Biến Môi Trường (Variables) trên Railway
-Trong mục **Variables** của service trên Railway, thêm các biến:
-* `PORT`: `3001` (hoặc để Railway tự gán biến `$PORT`)
-* `NODE_ENV`: `production`
-* `CLIENT_URL`: `https://your-frontend.vercel.app` *(Sau khi tạo Vercel ở Bước 2, hãy quay lại đây cập nhật đúng domain của Vercel; trong lúc test ban đầu có thể tạm để `*` hoặc localhost)*
-
-### 1.3 Cấp Public Domain cho Backend
-1. Vào tab **Settings** của service trên Railway.
-2. Tại mục **Networking**, click **"Generate Domain"** (Ví dụ sẽ được: `core-battle-production.up.railway.app`).
-3. Kiểm tra kiểm tra sức khỏe hệ thống:
-   Truy cập: `https://core-battle-production.up.railway.app/health`
-   Kết quả trả về JSON: `{"status":"ok","service":"core-battle"}` là backend đã hoạt động thành công!
-
----
-
-## BƯỚC 2: Triển Khai Frontend Lên Vercel
-
-### 2.1 Tạo Project trên Vercel
-1. Truy cập [Vercel.com](https://vercel.com/) và đăng nhập.
-2. Chọn **"Add New..."** -> **"Project"** -> Import repository GitHub của bạn.
-
-### 2.2 Cấu hình Project trên Vercel
-Dự án đã có sẵn file [`vercel.json`](file:///d:/du%20an/RuneOfOdin/vercel.json) ở thư mục gốc và [`apps/client/vercel.json`](file:///d:/du%20an/RuneOfOdin/apps/client/vercel.json) hỗ trợ SPA Routing.
-* **Framework Preset**: `Vite`
-* **Root Directory**: Giữ nguyên `./` (root) hoặc chọn `apps/client`
-  * Nếu giữ `./` (Khuyên dùng): File `vercel.json` gốc sẽ tự động chạy:
-    * **Build Command**: `npm run build -w @core-battle/client`
-    * **Output Directory**: `apps/client/dist`
-* **Environment Variables**:
-  * Thêm biến: `VITE_SERVER_URL`
-  * Giá trị: `https://core-battle-production.up.railway.app` *(Domain Railway bạn vừa lấy ở Bước 1.3)*
-
-3. Bấm **"Deploy"**. Quá trình build sẽ mất khoảng 30-45 giây.
+### Các bước thực hiện:
+1. Truy cập [Render.com](https://render.com/) và đăng nhập bằng tài khoản GitHub của bạn (`Dathazayuki`).
+2. Bấm nút **"New +"** ở góc trên bên phải -> Chọn **"Web Service"**.
+3. Chọn **"Build and deploy from a Git repository"** -> Nhấn **Next**.
+4. Chọn repository **`Dathazayuki/RuinOfOdin`** từ danh sách (nếu chưa thấy, bấm *"Configure GitHub App"* để cấp quyền đọc repo).
+5. Điền thông tin cấu hình:
+   - **Name**: `ruin-of-odin` (hoặc tên tùy thích).
+   - **Region**: Singapore (hoặc bất kỳ khu vực nào gần bạn để ping thấp).
+   - **Language / Runtime**: Chọn **`Docker`**.
+   - **Instance Type**: Chọn **`Free`** ($0/tháng).
+6. Bấm **"Deploy Web Service"**.
+7. Đợi khoảng 2 - 3 phút để Render build Dockerfile và khởi chạy.
+8. Sau khi hoàn tất, Render sẽ cấp cho bạn một đường link HTTPS (ví dụ: `https://ruin-of-odin.onrender.com`).
+   - Bạn có thể mở link này trên điện thoại hoặc máy tính.
+   - Gửi link này cho bạn bè: một người bấm **"Create a room"**, người kia nhập mã phòng và bấm **"Join"** để chiến đấu thời gian thực!
 
 ---
 
-## BƯỚC 3: Kết Nối Hai Bên & Hoàn Tất
+## ⚡ PHƯƠNG ÁN 2: Triển Khai 24/7 Lên Railway.app
 
-1. Sau khi Vercel deploy xong, bạn sẽ có URL Frontend (Ví dụ: `https://core-battle.vercel.app`).
-2. Quay lại tab **Variables** trên **Railway**, cập nhật biến `CLIENT_URL` thành URL chính thức của Vercel (ví dụ `https://core-battle.vercel.app`).
-3. Railway sẽ tự động re-deploy trong vài giây để áp dụng CORS policy mới.
-
----
-
-## 🧪 Kiểm Thử Hệ Thống (Verification)
-
-1. Mở trang Vercel trên trình duyệt.
-2. **Kiểm tra Single-player**: Bấm **"Play against bot"**, chọn độ khó Easy hoặc Normal. Đánh thử vài round để kiểm tra render bàn cờ, rút bài, animation và âm thanh Web Audio.
-3. **Kiểm tra Multiplayer**:
-   * Mở 2 cửa sổ trình duyệt (hoặc 1 cửa sổ thường + 1 cửa sổ ẩn danh).
-   * Cửa sổ 1: Bấm **"Create a room"** -> Nhận mã phòng 6 ký tự (ví dụ: `AB12CD`).
-   * Cửa sổ 2: Nhập mã phòng và bấm **"Join"**.
-   * Cả 2 người chơi sẽ được đưa vào bàn cờ thời gian thực qua WebSocket!
-   * Thử ngắt mạng một bên để kiểm tra màn hình đếm ngược 30 giây reconnect (`RESUME_ROOM`).
+1. Truy cập [Railway.app](https://railway.app/) và đăng nhập bằng GitHub.
+2. Chọn **"New Project"** -> **"Deploy from GitHub repo"** -> Chọn **`Dathazayuki/RuinOfOdin`**.
+3. Railway sẽ tự động nhận diện file [`Dockerfile`](file:///d:/du%20an/RuneOfOdin/Dockerfile) và build toàn bộ dự án.
+4. Vào tab **Settings** của service -> Mục **Networking** -> Bấm **"Generate Domain"** (Ví dụ: `ruin-of-odin.up.railway.app`).
+5. Truy cập domain được cấp để chơi trực tiếp.
 
 ---
 
-## 🛠️ Lệnh Hỗ Trợ Local (Local Production Test)
+## 🔗 PHƯƠNG ÁN 3: Tạo Live Public Link Ngay Lập Tức Từ Máy Local (Instant Tunnel)
 
-Nếu muốn chạy thử nghiệm mô phỏng production ngay trên máy tính của bạn:
+Nếu bạn đang chạy game trên máy tính và muốn gửi link ngay cho bạn bè chơi cùng lúc này mà không cần chờ deploy lên Cloud:
 
-```bash
-# 1. Build toàn bộ dự án
-npm run build
+1. Mở PowerShell trong thư mục dự án và khởi động server production:
+   ```powershell
+   npm run build
+   npm run start
+   ```
+2. Mở thêm 1 cửa sổ PowerShell thứ 2 và chạy Cloudflare Tunnel:
+   ```powershell
+   .\cloudflared.exe tunnel --url http://127.0.0.1:3001
+   ```
+3. Cloudflare sẽ tạo ra một đường link công khai dạng:
+   `https://xxxx-xxxx-xxxx.trycloudflare.com`
+4. Copy link đó gửi cho bạn bè để vào chơi Multiplayer ngay lập tức!
 
-# 2. Chạy server production ở cổng 3001
-$env:PORT="3001"; $env:CLIENT_URL="http://localhost:4173"; $env:NODE_ENV="production"; node apps/server/dist/index.js
+---
 
-# 3. Chạy client ở chế độ preview
-npm run preview -w @core-battle/client
-```
+## 🧪 Cách Kiểm Tra Tính Năng Multiplayer
+
+1. Mở link Web trên 2 thiết bị khác nhau (hoặc 1 tab thường + 1 tab ẩn danh).
+2. **Người chơi 1 (Host)**: 
+   - Nhìn sang panel bên phải mục **Multiplayer**.
+   - Bấm **"Create a room"**.
+   - Hệ thống sẽ cấp một mã phòng gồm 6 ký tự (Ví dụ: `8F2A1C`).
+3. **Người chơi 2 (Rival)**:
+   - Nhập mã phòng `8F2A1C` vào ô input.
+   - Bấm **"Join"**.
+4. Hệ thống sẽ tự động đồng bộ hóa thời gian thực qua WebSocket, tung xúc xắc chọn người đi trước và đưa cả 2 vào trận đấu!
