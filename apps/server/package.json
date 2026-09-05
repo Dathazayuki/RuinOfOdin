@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "tsx watch --env-file-if-exists=.env src/index.ts", "build": "tsup", "start": "node --env-file-if-exists=.env dist/index.js" },
+  "scripts": { "dev": "tsx watch src/index.ts", "build": "tsup", "start": "node dist/index.js" },
   "dependencies": { "@core-battle/shared": "*", "express": "^5.1.0", "socket.io": "^4.8.1", "zod": "^3.25.0" },
   "devDependencies": { "@types/express": "^5.0.0", "tsx": "^4.20.0", "tsup": "^8.5.0" }
 }

@@ -33,9 +33,9 @@ ENV PORT=3001
 
 # Copy package manifests & built dist
 COPY package.json package-lock.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/server/package.json ./apps/server/
-COPY apps/client/package.json ./apps/client/
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY apps/server/package.json ./apps/server/package.json
+COPY apps/client/package.json ./apps/client/package.json
 COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/apps/client/dist ./apps/client/dist
 COPY --from=builder /app/node_modules ./node_modules
