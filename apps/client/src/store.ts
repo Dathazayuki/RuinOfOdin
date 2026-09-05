@@ -32,6 +32,7 @@ async function request<T>(event: string, payload: unknown): Promise<T> {
   return result.data;
 }
 function getSocket(): Socket {
+  if (socket) return socket;
   const defaultUrl = window.location.port === '5173'
     ? `${window.location.protocol}//${window.location.hostname}:3001`
     : window.location.origin;
