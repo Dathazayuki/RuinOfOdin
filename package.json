@@ -18,8 +18,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "start": "npm run start -w @core-battle/server",
+    "format:check": "prettier --check .",
+    "start": "node apps/server/dist/index.js",
     "tunnel": "npx localtunnel --port 3001"
   },
   "devDependencies": {
