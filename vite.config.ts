@@ -1,19 +1,10 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()] as any,
   server: {
-    port: 5173,
-    strictPort: true,
-    host: true,
     allowedHosts: ['core-battleclient-production.up.railway.app', '.up.railway.app', 'localhost', '127.0.0.1'],
   },
   preview: {
-    port: 4173,
-    host: true,
     allowedHosts: ['core-battleclient-production.up.railway.app', '.up.railway.app', 'localhost', '127.0.0.1'],
   },
-  build: { chunkSizeWarningLimit: 650 },
 });
