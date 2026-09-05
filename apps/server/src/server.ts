@@ -116,18 +116,28 @@ export function createBattleServer(options: ServerOptions = {}) {
   timer.unref();
 
   io.on('connection', socket => {
+    console.log(`[Socket] client connected: ${socket.id}`);
+    socket.on('disconnect', reason => console.log(`[Socket] client ${socket.id} disconnected: ${reason}`));
     let requestCount = 0; let windowStart = Date.now();
     const handle = <T>(event: string, fn: (payload: unknown) => T) => {
       socket.on(event, (...args: unknown[]) => {
+        console.log(`[Socket] received ${event} from ${socket.id}`);
         const ack = typeof args[args.length - 1] === 'function' ? (args[args.length - 1] as (result: Reply<T>) => void) : null;
-        if (!ack) return;
+        if (!ack) {
+          console.warn(`[Socket] no ack callback provided for ${event}`);
+          return;
+        }
         const payload = args.length > 1 ? args[0] : undefined;
         try {
           if (Date.now() - windowStart >= 1000) { requestCount = 0; windowStart = Date.now(); }
           if (++requestCount > 30) throw new Error('Too many requests. Please wait a moment.');
-          ack({ ok: true, data: fn(payload) });
+          const data = fn(payload);
+          console.log(`[Socket] ${event} success for ${socket.id}`);
+          ack({ ok: true, data });
         } catch (error) {
-          ack({ ok: false, error: error instanceof z.ZodError ? 'Invalid request.' : error instanceof Error ? error.message : 'Request rejected.' });
+          const msg = error instanceof z.ZodError ? 'Invalid request.' : error instanceof Error ? error.message : 'Request rejected.';
+          console.error(`[Socket] ${event} error for ${socket.id}: ${msg}`);
+          ack({ ok: false, error: msg });
         }
       });
     };
