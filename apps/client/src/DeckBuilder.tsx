@@ -45,10 +45,10 @@ export function DeckBuilder() {
       <button className="icon-button modal-close" onClick={closeDeckBuilder} aria-label="Close deck builder"><X /></button>
       <span className="eyebrow">YOUR CARDS. YOUR STRATEGY.</span>
       <h2 id="deck-builder-title">Deck Builder</h2>
-      <p>Choose exactly 30 cards from 23 types. Up to 3 copies of each card. Your saved deck is used for Solo and Multiplayer.</p>
+      <p>Choose exactly 30 cards from 23 types. Up to 3 copies of each card. At most 18 Units and at least 12 Spells. Your saved deck is used for Solo and Multiplayer.</p>
       <div className="deck-summary" aria-live="polite">
         <strong className={`deck-count ${validation.valid ? 'valid' : 'invalid'}`}>{draft.length} / 30 Cards</strong>
-        <span>{units} Units</span><span>{draft.length - units} Spells</span><span>Avg. mana: {average}</span>
+        <span className={units > 18 ? 'quota-exceeded' : undefined}>{units} Units (max 18)</span><span>{draft.length - units} Spells</span><span>Avg. mana: {average}</span>
       </div>
       <div className="builder-filter-tabs" role="tablist" aria-label="Filter cards">
         <button role="tab" aria-selected={tab === 'ALL'} className={`tab-button ${tab === 'ALL' ? 'active' : ''}`} onClick={() => setTab('ALL')}>All (23)</button>

@@ -16,7 +16,7 @@ export function createGame(seed: number, decks: [readonly CardId[], readonly Car
   const firstPlayer: PlayerId = random() < 0.5 ? 0 : 1;
   const players = PLAYERS.map((id): PlayerState => {
     const deck = shuffle(decks[id].map((cardId, i) => ({ id: `${id}-${i}`, cardId })), random);
-    return { coreHp: 30, mana: id === firstPlayer ? 5 : 0, maxMana: 5, tacticToken: false, hand: deck.splice(0, 4), deck, discard: [], lanes: [null, null, null] };
+    return { coreHp: 30, mana: id === firstPlayer ? 5 : 0, spellMana: 0, maxMana: 5, tacticToken: false, hand: deck.splice(0, 4), deck, discard: [], lanes: [null, null, null] };
   }) as [PlayerState, PlayerState];
   const state: GameState = { round: 1, firstPlayer, activePlayer: firstPlayer, phase: 'ACTION', winner: null, players, revision: 0 };
   draw(state, firstPlayer, []);
@@ -37,11 +37,11 @@ function damage(unit: Unit, amount: number, player: PlayerId, events: GameEvent[
   unit.hp -= amount;
   events.push({ type: 'DAMAGE_DEALT', player, targetId: unit.id, amount });
   if (unit.hp <= 0) {
-    if (unit.cardId === 'berserker' && !unit.revived) {
+    if (!unit.isDecoy && unit.cardId === 'berserker' && !unit.revived) {
       unit.hp = 1;
       unit.revived = true;
       events.push({ type: 'UNIT_HEALED', player, targetId: unit.id, amount: 1 });
-    } else if (unit.cardId === 'skeleton' && killer && killer.hp > 0) {
+    } else if (!unit.isDecoy && unit.cardId === 'skeleton' && killer && killer.hp > 0) {
       damage(killer, 1, opponent(player), events);
     }
   }
@@ -54,7 +54,7 @@ function removeDead(state: GameState, events: GameEvent[]): void {
   for (const player of PLAYERS) for (const lane of LANES) {
     const unit = state.players[player].lanes[lane];
     if (unit && unit.hp <= 0) {
-      if (unit.cardId === 'berserker' && !unit.revived) {
+      if (!unit.isDecoy && unit.cardId === 'berserker' && !unit.revived) {
         unit.hp = 1;
         unit.revived = true;
         events.push({ type: 'UNIT_HEALED', player, targetId: unit.id, amount: 1 });
@@ -123,7 +123,7 @@ function combat(state: GameState, events: GameEvent[]): void {
 
   // Defender units check for Guardian Taunt:
   // While Guardian is on the board, enemy units on empty lanes cannot attack Core directly; they must attack Guardian instead.
-  const defenderGuardians = state.players[defender].lanes.filter((u): u is Unit => u !== null && u.cardId === 'guardian' && u.hp > 0);
+  const defenderGuardians = state.players[defender].lanes.filter((u): u is Unit => u !== null && !u.isDecoy && u.cardId === 'guardian' && u.hp > 0);
   const guardianTarget = defenderGuardians[0] ?? null;
 
   for (const lane of LANES) {
@@ -132,7 +132,7 @@ function combat(state: GameState, events: GameEvent[]): void {
 
     if (a) {
       // Clown effect: Directly attacks the enemy Core, bypassing units in its lane
-      if (a.cardId === 'clown' && canAttack(a, state.round, 'UNIT')) {
+      if (!a.isDecoy && a.cardId === 'clown' && canAttack(a, state.round, 'UNIT')) {
         if (guardianTarget) {
           // If defender has Guardian, taunt forces attack on Guardian
           hits.push({ unit: guardianTarget, amount: a.attack, player: defender, killer: a });
@@ -189,6 +189,13 @@ function combat(state: GameState, events: GameEvent[]): void {
     const next = state.players[state.activePlayer];
     next.maxMana = 5;
     next.mana = 5;
+    // Shield duration is measured in turns, not combat phases.
+    for (const unit of next.lanes) {
+      if (unit?.spellImmuneUntilRound !== undefined && unit.spellImmuneUntilRound <= state.round) {
+        delete unit.spellImmuneUntilRound;
+        events.push({ type: 'STATUS_EXPIRED', player: state.activePlayer, targetId: unit.id, status: 'SPELL_IMMUNE' });
+      }
+    }
     draw(state, state.activePlayer, events);
     events.push({ type: 'ROUND_STARTED', round: state.round, player: state.activePlayer });
   }
@@ -209,7 +216,8 @@ export function validateAction(state: GameState, player: PlayerId, action: GameA
   const card = p.hand.find(c => c.id === action.cardInstanceId);
   if (!card) return 'That card is not in your hand.';
   const definition = CARDS[card.cardId];
-  if (p.mana < definition.cost) return 'Not enough mana.';
+  const availableMana = action.type === 'CAST_SPELL' ? p.mana + p.spellMana : p.mana;
+  if (availableMana < definition.cost) return 'Not enough mana.';
   if (action.type === 'PLAY_UNIT') {
     if (definition.type !== 'UNIT') return 'Choose a unit card.';
     if (!LANES.includes(action.lane)) return 'Invalid lane.';
@@ -229,6 +237,7 @@ export function validateAction(state: GameState, player: PlayerId, action: GameA
     }
     const target = findUnit(state, action.targetId);
     if (!target) return 'Choose a living unit as the target.';
+    if (target.player !== player && (target.unit.spellImmuneUntilRound ?? 0) > state.round) return 'This unit is shielded from enemy spells.';
     if (targetType === 'FRIENDLY_UNIT' && target.player !== player) return 'This spell requires a friendly unit.';
     if (targetType === 'ENEMY_UNIT' && target.player === player) return 'Choose an enemy unit.';
     if (card.cardId === 'figure') {
@@ -249,13 +258,19 @@ export function applyAction(input: GameState, player: PlayerId, action: GameActi
   if (action.type === 'USE_TACTIC_TOKEN') {
     return { state: input, events: [], error: 'Tactic token is not used in this game mode.' };
   } else if (action.type === 'END_PHASE') {
+    p.spellMana = Math.min(2, p.spellMana + p.mana);
+    p.mana = 0;
     events.push({ type: 'PHASE_ENDED', player });
     combat(state, events);
   } else {
     const index = p.hand.findIndex(c => c.id === action.cardInstanceId);
     const card = p.hand.splice(index, 1)[0]!;
     const definition = CARDS[card.cardId];
-    p.mana -= definition.cost;
+    if (action.type === 'CAST_SPELL') {
+      const fromSpellMana = Math.min(p.spellMana, definition.cost);
+      p.spellMana -= fromSpellMana;
+      p.mana -= definition.cost - fromSpellMana;
+    } else p.mana -= definition.cost;
     events.push({ type: 'CARD_PLAYED', player, cardId: card.cardId });
     if (action.type === 'PLAY_UNIT') {
       // Apply Battlecry effects before unit enters board
@@ -313,7 +328,7 @@ export function legalActions(state: GameState, player: PlayerId): GameAction[] {
 export function viewFor(state: GameState, you: PlayerId): GameView {
   return {
     round: state.round, firstPlayer: state.firstPlayer, activePlayer: state.activePlayer, phase: state.phase, winner: state.winner, revision: state.revision, you,
-    players: state.players.map((p, id) => ({ coreHp: p.coreHp, mana: p.mana, maxMana: p.maxMana, tacticToken: p.tacticToken, handSize: p.hand.length, deckSize: p.deck.length, discardSize: p.discard.length, lanes: structuredClone(p.lanes), ...(id === you ? { hand: structuredClone(p.hand) } : {}) })) as GameView['players'],
+    players: state.players.map((p, id) => ({ coreHp: p.coreHp, mana: p.mana, spellMana: p.spellMana, maxMana: p.maxMana, tacticToken: p.tacticToken, handSize: p.hand.length, deckSize: p.deck.length, discardSize: p.discard.length, lanes: structuredClone(p.lanes), ...(id === you ? { hand: structuredClone(p.hand) } : {}) })) as GameView['players'],
   };
 }
 export function eventsFor(events: GameEvent[], player: PlayerId): GameEvent[] {

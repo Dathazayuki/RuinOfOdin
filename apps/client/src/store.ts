@@ -131,7 +131,7 @@ export const useGame = create<Store>((set, get) => ({
 
 /** Reuses engine validation with only visible information; never duplicates rules in React. */
 export function availableActions(view: GameView): GameAction[] {
-  const state: GameState = { ...view, players: ([0, 1] as const).map(id => { const p = view.players[id]; return ({ coreHp: p.coreHp, mana: p.mana, maxMana: p.maxMana, tacticToken: p.tacticToken, lanes: p.lanes, hand: p.hand ?? [], deck: [], discard: [] }); }) as unknown as GameState['players'] };
+  const state: GameState = { ...view, players: ([0, 1] as const).map(id => { const p = view.players[id]; return ({ coreHp: p.coreHp, mana: p.mana, spellMana: p.spellMana, maxMana: p.maxMana, tacticToken: p.tacticToken, lanes: p.lanes, hand: p.hand ?? [], deck: [], discard: [] }); }) as unknown as GameState['players'] };
   return legalActions(state, view.you);
 }
 export function restoreRoom() { if (credentials()) { useGame.setState({ mode: 'room' }); getSocket().connect(); } }

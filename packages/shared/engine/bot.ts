@@ -22,10 +22,10 @@ export function chooseBotAction(state: GameState, player: PlayerId, difficulty: 
     if (a.type !== 'CAST_SPELL') return true;
     const card = state.players[player].hand.find(c => c.id === a.cardInstanceId)!;
     const target = state.players.flatMap(p => p.lanes).find(u => u?.id === a.targetId);
-    if (card.cardId === 'heal') return !!target && target.hp < target.maxHp;
+    if (card.cardId === 'heal') return !!target && target.hp < 10;
     if (card.cardId === 'fireball') return state.players[opponent(player)].lanes.some(u => u?.id === a.targetId);
     if (card.cardId === 'lightning') return state.players[opponent(player)].lanes.some(Boolean);
-    if (card.cardId === 'debuffcleanse') return !!target && target.statuses.length > 0;
+    if (card.cardId === 'debuffcleanse') return !!target && (target.statuses.some(s => s.type === 'FREEZE' || s.type === 'POISON') || (target.spellImmuneUntilRound ?? 0) <= state.round);
     if (card.cardId === 'drawcard') return state.players[player].hand.length < 7 && state.players[player].deck.length > 0;
     if (card.cardId === 'figure') return !!target && target.hp >= 2;
     if (card.cardId === 'gainatk') return !!target;

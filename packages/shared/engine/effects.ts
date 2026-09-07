@@ -9,7 +9,7 @@ export function dealDamage(unit: Unit, amount: number, player: PlayerId, events:
 
 /** Helper to heal a unit and emit heal event */
 export function healUnit(unit: Unit, amount: number, player: PlayerId, events: GameEvent[]): void {
-  const actual = Math.min(amount, unit.maxHp - unit.hp);
+  const actual = Math.max(0, Math.min(amount, 10 - unit.hp));
   unit.hp += actual;
   events.push({ type: 'UNIT_HEALED', player, targetId: unit.id, amount: actual });
 }
@@ -35,6 +35,7 @@ export function applyBattlecry(
   targetId: string | undefined,
   events: GameEvent[]
 ): void {
+  if ('isDecoy' in card && card.isDecoy) return;
   const enemy = opponent(player);
 
   // 1. Mage: Deal 2 damage to enemy unit in the same lane
@@ -105,7 +106,7 @@ export function applySpellEffect(
     // 3. Lightning: 3 damage to all enemy units simultaneously
     case 'lightning': {
       for (const unit of state.players[enemy].lanes) {
-        if (unit && unit.hp > 0) {
+        if (unit && unit.hp > 0 && (unit.spellImmuneUntilRound ?? 0) <= state.round) {
           dealDamage(unit, 3, enemy, events);
         }
       }
@@ -133,10 +134,13 @@ export function applySpellEffect(
     // 6. Debuff Cleanse: Cleanse Freeze and Poison from a friendly unit
     case 'debuffcleanse': {
       if (targetUnit && targetUnit.player === player) {
-        for (const s of targetUnit.unit.statuses) {
-          events.push({ type: 'STATUS_EXPIRED', player, targetId: targetUnit.unit.id, status: s.type });
-        }
-        targetUnit.unit.statuses = [];
+        targetUnit.unit.statuses = targetUnit.unit.statuses.filter(status => {
+          if (status.type !== 'FREEZE' && status.type !== 'POISON') return true;
+          events.push({ type: 'STATUS_EXPIRED', player, targetId: targetUnit.unit.id, status: status.type });
+          return false;
+        });
+        targetUnit.unit.spellImmuneUntilRound = state.round + 2;
+        events.push({ type: 'STATUS_APPLIED', player, targetId: targetUnit.unit.id, status: 'SPELL_IMMUNE' });
       }
       break;
     }
@@ -160,12 +164,12 @@ export function applySpellEffect(
             const decoy: Unit = {
               id: decoyId,
               cardId: targetUnit.unit.cardId,
-              attack: targetUnit.unit.attack,
+              attack: 0,
               hp: targetUnit.unit.hp,
               maxHp: targetUnit.unit.maxHp,
               summonedRound: state.round,
               statuses: [],
-              cannotAttack: true, // Decoy cannot initiate attacks
+              isDecoy: true, // No intrinsic abilities; normal attack eligibility still applies.
             };
             p.lanes[emptyLane] = decoy;
             events.push({ type: 'UNIT_SUMMONED', player, targetId: decoyId, cardId: targetUnit.unit.cardId });
@@ -209,6 +213,7 @@ export function handleDeathEffects(
   player: PlayerId,
   events: GameEvent[]
 ): boolean {
+  if (dyingUnit.isDecoy) return false;
   // 1. Berserker: Revives once upon death with 1 HP
   if (dyingUnit.cardId === 'berserker' && !dyingUnit.revived) {
     dyingUnit.hp = 1;

@@ -72,7 +72,7 @@ describe('fixed mana and immediate turn-end combat', () => {
       // Spend resources without altering combat to verify independent refill.
       s.players[active].mana = 1;
       s = end(s);
-      expect(s.players[active].mana).toBe(1);
+      expect(s.players[active].mana).toBe(0); expect(s.players[active].spellMana).toBeLessThanOrEqual(2);
       expect(s.players[s.activePlayer].mana).toBe(5);
     }
   });

@@ -145,3 +145,26 @@ describe('custom decks over multiplayer', () => {
     expect(snapshots.get(guest)?.game).toEqual(viewFor(createGame(42, [custom, DECK]), 1));
   });
 });
+
+describe('spell mana and unit quota on server', () => {
+  it('rejects a 19-unit deck before joining, accepts 18 units, and broadcasts authoritative spell mana', async () => {
+    const unitIds = ['goblin', 'assassin', 'archer', 'knight', 'guardian', 'mage', 'berserker'];
+    const spellIds = ['fireball', 'freeze', 'lightning', 'heal'];
+    const deck = (count: number) => [...unitIds.flatMap(id => [id, id, id]).slice(0, count), ...spellIds.flatMap(id => [id, id, id]).slice(0, 30 - count)];
+    const host = await connect(); const guest = await connect();
+    expect((await request(host, 'CREATE_ROOM', { deck: deck(19) })).ok).toBe(false);
+    const credentials = await data<RoomCredentials>(host, 'CREATE_ROOM', { deck: deck(18) });
+    expect((await request(guest, 'JOIN_ROOM', { code: credentials.code, deck: deck(19) })).ok).toBe(false);
+    await data(guest, 'JOIN_ROOM', { code: credentials.code, deck: deck(18) });
+    await new Promise(resolve => setTimeout(resolve, 15));
+    const first = snapshots.get(host)!.game!.activePlayer;
+    const actor = first === 0 ? host : guest;
+    await data(actor, 'GAME_ACTION', { revision: 0, spellMana: 999, action: { type: 'END_PHASE', spellMana: 999, mana: 999 } });
+    await new Promise(resolve => setTimeout(resolve, 15));
+    for (const client of [host, guest]) {
+      const view = snapshots.get(client)!.game!;
+      expect(view.players[first].spellMana).toBe(2); expect(view.players[first].mana).toBe(0);
+      expect(view.players[view.activePlayer].spellMana).toBe(0); expect(view.players[view.activePlayer].mana).toBe(5);
+    }
+  });
+});

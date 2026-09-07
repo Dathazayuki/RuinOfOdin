@@ -5,7 +5,7 @@ export type CardId =
   | 'berserker' | 'clown' | 'golem' | 'lancer' | 'rider' | 'skeleton'
   | 'fireball' | 'freeze' | 'lightning' | 'heal' | 'poison'
   | 'debuffcleanse' | 'drawcard' | 'figure' | 'gainatk' | 'gainmana' | 'healcore';
-export type StatusType = 'FREEZE' | 'POISON';
+export type StatusType = 'FREEZE' | 'POISON' | 'SPELL_IMMUNE';
 export interface StatusEffect { type: StatusType; remainingCombatPhases: number }
 export interface CardDefinition {
   id: CardId;
@@ -25,10 +25,12 @@ export interface Unit extends CardInstance {
   maxHp: number;
   summonedRound: number;
   statuses: StatusEffect[];
+  isDecoy?: boolean;
+  spellImmuneUntilRound?: number;
   revived?: boolean;
   cannotAttack?: boolean;
 }
-export interface PlayerState { coreHp: number; mana: number; maxMana: number; tacticToken: boolean; hand: CardInstance[]; deck: CardInstance[]; discard: CardInstance[]; lanes: [Unit | null, Unit | null, Unit | null] }
+export interface PlayerState { coreHp: number; mana: number; spellMana: number; maxMana: number; tacticToken: boolean; hand: CardInstance[]; deck: CardInstance[]; discard: CardInstance[]; lanes: [Unit | null, Unit | null, Unit | null] }
 export interface GameState { round: number; firstPlayer: PlayerId; activePlayer: PlayerId; phase: 'ACTION' | 'FINISHED'; winner: PlayerId | 'DRAW' | null; players: [PlayerState, PlayerState]; revision: number }
 export type GameAction =
   | { type: 'PLAY_UNIT'; cardInstanceId: string; lane: Lane; targetId?: string }
@@ -38,7 +40,7 @@ export type GameAction =
 export type EventType = 'CARD_DRAWN' | 'CARD_BURNED' | 'CARD_PLAYED' | 'UNIT_SUMMONED' | 'SPELL_CAST' | 'DAMAGE_DEALT' | 'UNIT_HEALED' | 'UNIT_DIED' | 'CORE_DAMAGED' | 'STATUS_APPLIED' | 'STATUS_EXPIRED' | 'COMBAT_STARTED' | 'COMBAT_ENDED' | 'GAME_WON' | 'GAME_DRAW' | 'ROUND_STARTED' | 'PHASE_ENDED' | 'TOKEN_USED' | 'ATTACK';
 export interface GameEvent { type: EventType; player?: PlayerId; targetId?: string; cardId?: CardId; amount?: number; status?: StatusType; round?: number; audience?: PlayerId }
 export interface ActionResult { state: GameState; events: GameEvent[]; error?: string }
-export interface PlayerView { coreHp: number; mana: number; maxMana: number; tacticToken: boolean; handSize: number; deckSize: number; discardSize: number; lanes: PlayerState['lanes']; hand?: CardInstance[] }
+export interface PlayerView { coreHp: number; mana: number; spellMana: number; maxMana: number; tacticToken: boolean; handSize: number; deckSize: number; discardSize: number; lanes: PlayerState['lanes']; hand?: CardInstance[] }
 export interface GameView extends Omit<GameState, 'players'> { players: [PlayerView, PlayerView]; you: PlayerId }
 export type RoomStatus = 'WAITING' | 'PLAYING' | 'DISCONNECTED' | 'FINISHED' | 'CLOSED';
 export interface RoomSnapshot { code: string; status: RoomStatus; you: PlayerId; game: GameView | null; events: GameEvent[]; reconnectDeadline: number | null; reason?: string }

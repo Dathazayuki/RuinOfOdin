@@ -179,8 +179,8 @@ describe('spells and status timing', () => {
     s = endTurn(s).state;
     expect(s.players[0].coreHp).toBe(28);
   });
-  it('TC-080 heals to max; rejects enemy and dead targets', () => {
-    const s = setup(); const target = unit(s, 0, 0, 'guardian', { hp: 5 }); expect(play(s, 'heal', target.id).state.players[0].lanes[0]?.hp).toBe(8);
+  it('TC-080 allows overheal; rejects enemy and dead targets', () => {
+    const s = setup(); const target = unit(s, 0, 0, 'guardian', { hp: 5 }); expect(play(s, 'heal', target.id).state.players[0].lanes[0]?.hp).toBe(9);
     const enemy = unit(s, 1, 0, 'knight'); expect(play(s, 'heal', enemy.id).error).toBeTruthy();
     target.hp = 0; expect(play(s, 'heal', target.id).error).toBeTruthy();
   });
