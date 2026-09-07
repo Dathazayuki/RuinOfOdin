@@ -5,7 +5,7 @@ export const CARDS: Record<CardId, CardDefinition> = {
   assassin: { id: 'assassin', name: 'Assassin', type: 'UNIT', cost: 2, attack: 4, hp: 2, description: 'Strikes with lethal precision from the shadows. Fragile in direct combat.', art: 'UnitArt/Assassin.png' },
   archer: { id: 'archer', name: 'Archer', type: 'UNIT', cost: 3, attack: 4, hp: 3, description: 'Summon: strikes an enemy unit in another lane immediately.', art: 'UnitArt/Archer.png' },
   knight: { id: 'knight', name: 'Knight', type: 'UNIT', cost: 3, attack: 4, hp: 5, description: 'Hold the line. Turn the tide.', art: 'UnitArt/Knight.png' },
-  guardian: { id: 'guardian', name: 'Guardian', type: 'UNIT', cost: 4, attack: 2, hp: 8, description: 'Taunt: When alone on your board, enemy units must attack Guardian instead of your Core.', art: 'UnitArt/Guardian.png' },
+  guardian: { id: 'guardian', name: 'Guardian', type: 'UNIT', cost: 4, attack: 2, hp: 8, description: 'Taunt: While on your board, enemy units on empty lanes must attack Guardian instead of your Core.', art: 'UnitArt/Guardian.png' },
   mage: { id: 'mage', name: 'Mage', type: 'UNIT', cost: 5, attack: 5, hp: 4, description: 'Battlecry: deal 2 damage to the enemy unit in this lane.', art: 'UnitArt/Mage.png' },
   berserker: { id: 'berserker', name: 'Berserker', type: 'UNIT', cost: 4, attack: 5, hp: 1, description: 'Undying Rage: Revives once upon death with 1 HP.', art: 'UnitArt/Berserker.png' },
   clown: { id: 'clown', name: 'Clown', type: 'UNIT', cost: 3, attack: 2, hp: 3, description: 'Sneak Attack: Bypasses enemy units in this lane to strike the enemy Core directly.', art: 'UnitArt/Clown.png' },

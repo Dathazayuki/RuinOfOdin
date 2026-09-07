@@ -122,9 +122,9 @@ function combat(state: GameState, events: GameEvent[]): void {
   const coreHits: { player: PlayerId; amount: number }[] = [];
 
   // Defender units check for Guardian Taunt:
-  // "The Guardian card gains the Taunt effect; all enemy units across all lanes must attack the Guardian if it is the only unit remaining on the board."
-  const defenderLiving = state.players[defender].lanes.filter((u): u is Unit => u !== null && u.hp > 0);
-  const soleGuardian = defenderLiving.length === 1 && defenderLiving[0]?.cardId === 'guardian' ? defenderLiving[0] : null;
+  // While Guardian is on the board, enemy units on empty lanes cannot attack Core directly; they must attack Guardian instead.
+  const defenderGuardians = state.players[defender].lanes.filter((u): u is Unit => u !== null && u.cardId === 'guardian' && u.hp > 0);
+  const guardianTarget = defenderGuardians[0] ?? null;
 
   for (const lane of LANES) {
     const a = state.players[active].lanes[lane];
@@ -133,10 +133,10 @@ function combat(state: GameState, events: GameEvent[]): void {
     if (a) {
       // Clown effect: Directly attacks the enemy Core, bypassing units in its lane
       if (a.cardId === 'clown' && canAttack(a, state.round, 'UNIT')) {
-        if (soleGuardian) {
-          // If defender has sole Guardian, taunt forces attack on Guardian
-          hits.push({ unit: soleGuardian, amount: a.attack, player: defender, killer: a });
-          hits.push({ unit: a, amount: soleGuardian.attack, player: active, killer: soleGuardian });
+        if (guardianTarget) {
+          // If defender has Guardian, taunt forces attack on Guardian
+          hits.push({ unit: guardianTarget, amount: a.attack, player: defender, killer: a });
+          hits.push({ unit: a, amount: guardianTarget.attack, player: active, killer: guardianTarget });
         } else {
           coreHits.push({ player: defender, amount: a.attack });
         }
@@ -147,10 +147,10 @@ function combat(state: GameState, events: GameEvent[]): void {
         hits.push({ unit: a, amount: b.attack, player: active, killer: b });
         events.push({ type: 'ATTACK', player: active, targetId: a.id });
       } else if (!b && canAttack(a, state.round, 'CORE')) {
-        if (soleGuardian) {
-          // Taunt redirect: Defender has only Guardian remaining on board
-          hits.push({ unit: soleGuardian, amount: a.attack, player: defender, killer: a });
-          hits.push({ unit: a, amount: soleGuardian.attack, player: active, killer: soleGuardian });
+        if (guardianTarget) {
+          // Taunt redirect: Defender has Guardian on board protecting Core from empty lane attacks
+          hits.push({ unit: guardianTarget, amount: a.attack, player: defender, killer: a });
+          hits.push({ unit: a, amount: guardianTarget.attack, player: active, killer: guardianTarget });
           events.push({ type: 'ATTACK', player: active, targetId: a.id });
         } else {
           // Empty enemy lane -> Direct Core damage

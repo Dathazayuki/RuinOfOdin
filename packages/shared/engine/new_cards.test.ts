@@ -195,6 +195,52 @@ describe('12 New Cards & Abilities', () => {
     expect(next.players[active].lanes[1]?.hp).toBe(4 - 2);
   });
 
+  it('Guardian Taunt redirects attacks from empty enemy lanes even when other friendly units are on the board', () => {
+    const s = createGame(1);
+    s.round = 2;
+    const active = s.activePlayer;
+    const def = opponent(active);
+    const initialCoreHp = s.players[def].coreHp;
+
+    // Attacker has Lancer (4 ATK) in lane 1, facing an empty lane
+    s.players[active].lanes[1] = {
+      id: 'lancer-1',
+      cardId: 'lancer',
+      attack: 4,
+      hp: 4,
+      maxHp: 4,
+      summonedRound: 1,
+      statuses: [],
+    };
+
+    // Defender has Guardian in lane 0 AND Knight in lane 2
+    s.players[def].lanes[0] = {
+      id: 'guardian-1',
+      cardId: 'guardian',
+      attack: 2,
+      hp: 8,
+      maxHp: 8,
+      summonedRound: 1,
+      statuses: [],
+    };
+    s.players[def].lanes[1] = null; // Empty lane opposite to Lancer
+    s.players[def].lanes[2] = {
+      id: 'knight-1',
+      cardId: 'knight',
+      attack: 4,
+      hp: 5,
+      maxHp: 5,
+      summonedRound: 1,
+      statuses: [],
+    };
+
+    const next = end(s);
+    // Even though Defender has both Guardian and Knight, Guardian Taunts the empty lane attacker!
+    expect(next.players[def].coreHp).toBe(initialCoreHp); // Core protected!
+    expect(next.players[def].lanes[0]?.hp).toBe(8 - 4); // Guardian took 4 damage
+    expect(next.players[active].lanes[1]?.hp).toBe(4 - 2); // Lancer took 2 counter damage
+  });
+
   it('Archer snipes an enemy unit in another lane immediately upon summon', () => {
     const s = createGame(1);
     const active = s.activePlayer;
