@@ -63,7 +63,7 @@ export function applyBattlecry(
       if (l !== lane) {
         const enemyUnit = state.players[enemy].lanes[l];
         if (enemyUnit && enemyUnit.id === targetId && enemyUnit.hp > 0) {
-          dealDamage(enemyUnit, 4, enemy, events);
+          dealDamage(enemyUnit, 2, enemy, events);
           break;
         }
       }
