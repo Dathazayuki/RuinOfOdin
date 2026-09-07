@@ -119,20 +119,21 @@ test('custom multiplayer decks, turn-one protection, immediate turn-two attack a
     await expect(second.locator('.your-core .core-health strong')).toHaveText('30');
     await expect(second.locator('.mana-display strong')).toHaveText('5');
     const secondUnit = second.locator('.hand .card.unit:not(:disabled)').first();
-    // Fail explicitly if this random opener cannot demonstrate the requested attack.
     await expect(secondUnit).toBeVisible();
-    const attack = Number((await secondUnit.getAttribute('aria-label'))?.match(/(\d+) attack/)?.[1]);
     await secondUnit.click();
+    // Summon on lane 2 (empty opposing lane)
     await second.getByRole('button', { name: 'Friendly empty lane 2', exact: true }).click();
-    await expect(second.getByText('ROUND 1 WAIT', { exact: true })).toHaveCount(0);
+    // On empty lane, newly summoned unit guards (cannot attack core this turn)
+    await expect(second.getByText('GUARDING', { exact: true })).toBeVisible();
     await second.getByRole('button', { name: 'End turn' }).click();
     await expect(first.locator('.round-pill strong')).toHaveText('03');
-    await expect(first.locator('.your-core .core-health strong')).toHaveText(String(30 - attack));
+    // First player core is untouched (30 HP) because Rush prevents hitting empty lane core on summon turn!
+    await expect(first.locator('.your-core .core-health strong')).toHaveText('30');
     await expect(first.locator('.mana-display strong')).toHaveText('5');
     await first.reload();
     await expect(first.locator('.round-pill strong')).toHaveText('03');
     await expect(first.getByRole('button', { name: 'End turn' })).toBeEnabled();
-    await expect(first.locator('.your-core .core-health strong')).toHaveText(String(30 - attack));
+    await expect(first.locator('.your-core .core-health strong')).toHaveText('30');
     await assertImages(first);
     await first.screenshot({ path: testInfo.outputPath('multiplayer-reconnected.png') });
     testInfo.annotations.push({ type: 'turn-one-summon', description: String(hasFirstUnit) });

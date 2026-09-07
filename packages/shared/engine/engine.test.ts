@@ -189,9 +189,17 @@ describe('spells and status timing', () => {
     expect(r.state.players[1].lanes.map(u => u?.hp ?? null)).toEqual([null, 2, null]);
     const types = r.events.map(e => e.type); expect(types.lastIndexOf('DAMAGE_DEALT')).toBeLessThan(types.indexOf('UNIT_DIED'));
   });
-  it('TC-100 Mage battlecry kills immediately, never hits core, mage attacks immediately after Turn 1', () => {
-    const s = setup(); unit(s, 1, 0, 'goblin'); const r = play(s, 'mage'); expect(r.state.players[1].lanes[0]).toBeNull();
-    expect(endTurn(r.state).state.players[1].coreHp).toBe(25); expect(play(setup(), 'mage').state.players[1].coreHp).toBe(30);
+  it('TC-100 Mage battlecry kills goblin, newly summoned Mage cannot hit empty core; Mage attacks surviving enemy', () => {
+    // 1: Battlecry kills goblin -> lane becomes empty -> newly summoned Mage does NOT hit core
+    const s1 = setup(); unit(s1, 1, 0, 'goblin'); const r1 = play(s1, 'mage'); expect(r1.state.players[1].lanes[0]).toBeNull();
+    expect(endTurn(r1.state).state.players[1].coreHp).toBe(30);
+    // 2: Battlecry damages Knight (5 HP - 2 = 3 HP) -> Mage (Rush) attacks Knight at turn end, killing Knight!
+    const s2 = setup(); unit(s2, 1, 0, 'knight'); const r2 = play(s2, 'mage');
+    expect(r2.state.players[1].lanes[0]?.hp).toBe(3);
+    const endResult = endTurn(r2.state).state;
+    expect(endResult.players[1].lanes[0]).toBeNull(); // Knight died from Mage's 5 ATK Rush
+    expect(endResult.players[0].lanes[0]).toBeNull(); // Mage also died from Knight's 4 ATK counterattack (4 HP - 4 = 0)
+    expect(endResult.players[1].coreHp).toBe(30);
   });
 });
 

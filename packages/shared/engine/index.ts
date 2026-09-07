@@ -58,9 +58,11 @@ function checkWinner(state: GameState, events: GameEvent[]): void {
   state.winner = a && b ? 'DRAW' : a ? 1 : 0;
   events.push(state.winner === 'DRAW' ? { type: 'GAME_DRAW' } : { type: 'GAME_WON', player: state.winner });
 }
-export function canAttack(unit: Unit, round: number): boolean {
+export function canAttack(unit: Unit, round: number, target: 'UNIT' | 'CORE' = 'UNIT'): boolean {
   if (round === 1) return false;
-  return unit.hp > 0 && !unit.statuses.some(s => s.type === 'FREEZE');
+  if (unit.hp <= 0 || unit.statuses.some(s => s.type === 'FREEZE')) return false;
+  if (target === 'CORE' && unit.summonedRound === round) return false;
+  return true;
 }
 
 function combat(state: GameState, events: GameEvent[]): void {
@@ -105,16 +107,15 @@ function combat(state: GameState, events: GameEvent[]): void {
   for (const lane of LANES) {
     const a = state.players[active].lanes[lane];
     const b = state.players[defender].lanes[lane];
-    const attacksA = !!a && canAttack(a, state.round);
 
-    if (attacksA && a) {
-      if (b) {
+    if (a) {
+      if (b && canAttack(a, state.round, 'UNIT')) {
         // Both exchange damage simultaneously
         hits.push({ unit: b, amount: a.attack, player: defender });
         hits.push({ unit: a, amount: b.attack, player: active });
         events.push({ type: 'ATTACK', player: active, targetId: a.id });
-      } else {
-        // Empty enemy lane -> Direct Core damage
+      } else if (!b && canAttack(a, state.round, 'CORE')) {
+        // Empty enemy lane -> Direct Core damage (only for units summoned in prior rounds)
         coreHits.push({ player: defender, amount: a.attack });
         events.push({ type: 'ATTACK', player: active, targetId: a.id });
       }

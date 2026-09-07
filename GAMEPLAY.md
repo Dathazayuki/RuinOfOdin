@@ -10,12 +10,14 @@ Tài liệu này mô tả luật đang chạy sau bản cập nhật ngày 07/09
 - Mỗi bên nhận 4 lá ban đầu rồi rút 1 lá khi bắt đầu lượt của mình, kể cả lượt đầu tiên. Giới hạn trên tay vẫn là 7; rút thêm khi đầy sẽ bỏ lá mới rút.
 - Không có Tactic Token trong chế độ lượt xen kẽ hiện tại.
 
-## Giao chiến khi kết thúc lượt
+## Giao chiến khi kết thúc lượt (Cơ chế Rush)
 
 - **Lượt 1:** toàn bộ quân của người đi trước không được tấn công khi kết thúc lượt.
-- **Từ lượt 2:** quân vừa triệu hồi có thể tấn công ngay khi chủ sở hữu kết thúc lượt, nếu còn sống và không bị Freeze.
+- **Từ lượt 2 (Cơ chế Rush):**
+  - Quân **vừa triệu hồi trong lượt**: nếu đối diện có Unit của đối thủ, quân này **tấn công ngay** để tiêu diệt quái địch và tranh quyền kiểm soát lane. Nếu đối diện là **lane trống**, quân này **CHƯA được đánh vào Core** ở lượt này (phải đứng canh gác).
+  - Quân **đã sống sót từ các lượt trước**: luôn được quyền tấn công cả Unit đối thủ lẫn Core (nếu lane trống).
 - Chỉ quân của người đang kết thúc lượt chủ động tấn công. Quân đối phương trong cùng lane phản đòn; sát thương trao đổi đồng thời. Quân bên phòng thủ không tự đánh Core ở lane trống.
-- Mage vẫn gây 2 sát thương Battlecry ngay khi triệu hồi. Từ lượt 2, Mage có thể gây tiếp sát thương tấn công ở cuối lượt đó.
+- Mage vẫn gây 2 sát thương Battlecry ngay khi triệu hồi. Từ lượt 2, nếu đối diện có Unit, Mage có thể đánh tiếp; nếu lane trống, Mage chưa đánh Core lượt này.
 - Poison được xử lý trước tấn công. Quân chết vì Poison không được tham gia giao chiến. Freeze ngăn chủ động tấn công nhưng vẫn cho phép phản đòn, và hết hạn sau combat của chủ sở hữu.
 - Sudden Death hiện có được giữ nguyên: từ lượt 21, hai Core chịu 2 sát thương khi bắt đầu combat.
 

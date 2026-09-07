@@ -9,7 +9,7 @@ function evaluate(state: GameState, player: PlayerId): number {
   if (state.winner !== null) return state.winner === 'DRAW' ? 0 : state.winner === player ? 100000 : -100000;
   const value = (id: PlayerId) => {
     const p = state.players[id];
-    return p.coreHp * 5 + p.lanes.reduce((sum, u, lane) => sum + (u ? u.hp * 1.2 + u.attack * 2 + (canAttack(u, state.round) && !state.players[opponent(id)].lanes[lane] ? u.attack * 2 : 0) : 0), 0);
+    return p.coreHp * 5 + p.lanes.reduce((sum, u, lane) => sum + (u ? u.hp * 1.2 + u.attack * 2 + (canAttack(u, state.round, 'CORE') && !state.players[opponent(id)].lanes[lane] ? u.attack * 2 : 0) : 0), 0);
   };
   return value(player) - value(opponent(player));
 }

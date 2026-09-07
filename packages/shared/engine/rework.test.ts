@@ -86,14 +86,37 @@ describe('fixed mana and immediate turn-end combat', () => {
     expect(s.players[second].mana).toBe(5);
     // Inactive first-player units must not initiate attacks during the second player's turn.
     s = end(s); expect(s.players[second].coreHp).toBe(30);
+    // On Turn 3, first player's veteran Mage now attacks the empty lane's core!
     s = end(s); expect(s.players[second].coreHp).toBe(25);
   });
-  it.each([2, 3, 10, 11])('a unit summoned on Turn %i attacks immediately at turn end', turn => {
-    let s = createGame(9); while (s.round < turn) s = end(s);
+  it('a newly summoned unit on Turn 2 does NOT attack an empty lane core (Rush targets units only)', () => {
+    let s = end(createGame(9)); // Turn 2
     const active = s.activePlayer; const target = opponent(active);
     s = summon(s, 'mage');
-    expect(s.players[active].lanes[0]?.summonedRound).toBe(turn);
-    s = end(s); expect(s.players[target].coreHp).toBe(25);
+    expect(s.players[active].lanes[0]?.summonedRound).toBe(2);
+    s = end(s);
+    // Core remains undamaged because newly summoned unit cannot hit core on empty lane
+    expect(s.players[target].coreHp).toBe(30);
+    // Advance past opponent's turn
+    s = end(s); // Turn 4, active player's turn again
+    // Now Mage is a veteran unit (summoned in round 2 < round 4) -> attacks core!
+    s = end(s);
+    expect(s.players[target].coreHp).toBe(25);
+  });
+  it('a newly summoned unit on Turn 2 DOES attack an opposing enemy unit immediately (Rush)', () => {
+    let s = end(createGame(9)); // Turn 2
+    const active = s.activePlayer; const defender = opponent(active);
+    // Place an enemy unit in lane 0
+    s.players[defender].lanes[0] = { id: 'enemy-knight', cardId: 'knight', attack: 4, hp: 5, maxHp: 5, summonedRound: 1, statuses: [] };
+    // Summon assassin (4 ATK, 2 HP) in lane 0
+    s = summon(s, 'assassin');
+    expect(s.players[active].lanes[0]?.summonedRound).toBe(2);
+    s = end(s);
+    // Assassin attacks Knight immediately (Rush)! Knight counterattacks Assassin.
+    // Assassin dies (2 HP - 4 = -2 <= 0), Knight takes 4 damage (5 - 4 = 1 HP)
+    expect(s.players[active].lanes[0]).toBeNull();
+    expect(s.players[defender].lanes[0]?.hp).toBe(1);
+    expect(s.players[defender].coreHp).toBe(30); // Core untouched!
   });
   it('a new attacker exchanges simultaneous damage with a frozen defender', () => {
     let s = end(createGame(4)); const active = s.activePlayer; const defender = opponent(active);
@@ -112,13 +135,16 @@ describe('fixed mana and immediate turn-end combat', () => {
       else expect(s.players[active].lanes[0]?.statuses).toEqual([]);
     }
     const dead = { hp: 0, statuses: [], summonedRound: 2 } as unknown as Unit;
-    expect(canAttack(dead, 2)).toBe(false);
+    expect(canAttack(dead, 2, 'UNIT')).toBe(false);
+    expect(canAttack(dead, 2, 'CORE')).toBe(false);
   });
-  it('normal bot finds lethal by summoning a new unit on Turn 2', () => {
+  it('normal bot finds lethal with a veteran unit attacking an open lane', () => {
     const s = end(createGame(2)); const active = s.activePlayer;
     s.players[opponent(active)].coreHp = 5;
-    s.players[active].hand = [{ id: 'lethal-mage', cardId: 'mage' }];
-    const action = chooseBotAction(s, active, 'normal'); expect(action.type).toBe('PLAY_UNIT');
+    // Veteran unit from round 1 on lane 0
+    s.players[active].lanes[0] = { id: 'veteran-mage', cardId: 'mage', attack: 5, hp: 4, maxHp: 4, summonedRound: 1, statuses: [] };
+    const action = chooseBotAction(s, active, 'normal');
+    // Bot simply ends phase to let veteran unit deliver lethal to core
     const next = applyAction(s, active, action).state;
     expect(end(next).winner).toBe(active);
   });
