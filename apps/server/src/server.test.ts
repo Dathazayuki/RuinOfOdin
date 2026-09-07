@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { io, type Socket } from 'socket.io-client';
 import type { AddressInfo } from 'node:net';
-import { legalActions, type GameState, type Reply, type RoomCredentials, type RoomSnapshot } from '@core-battle/shared';
+import { DECK, createGame, viewFor, legalActions, type GameState, type Reply, type RoomCredentials, type RoomSnapshot } from '@core-battle/shared';
 import { createBattleServer } from './server';
 
 let server: ReturnType<typeof createBattleServer>;
@@ -41,7 +41,7 @@ describe('authoritative multiplayer', () => {
     expect((await request(waiting, 'GAME_ACTION', { revision: 0, action: { type: 'END_PHASE', player: state.activePlayer } })).ok).toBe(false);
     await data(actor, 'GAME_ACTION', { revision: 0, action: { type: 'END_PHASE', mana: 999, damage: 999, coreHp: 999 }, player: state.activePlayer });
     await new Promise(resolve => setTimeout(resolve, 15));
-    for (const client of [a, b]) { const view = snapshots.get(client)!.game!; expect(view.revision).toBe(1); expect(view.players[0].coreHp).toBe(30); expect(view.players[view.activePlayer].mana).toBe(2); }
+    for (const client of [a, b]) { const view = snapshots.get(client)!.game!; expect(view.revision).toBe(1); expect(view.players[0].coreHp).toBe(30); expect(view.players[view.activePlayer].mana).toBe(5); }
     expect((await request(waiting, 'GAME_ACTION', { revision: 0, action: { type: 'END_PHASE' } })).ok).toBe(false);
   });
   it('TC-182/183 hides private cards/decks, rejects stolen cards and malformed messages', async () => {
@@ -98,5 +98,50 @@ describe('authoritative multiplayer', () => {
     const action = legalActions(state, view.you).find(a => a.type === 'PLAY_UNIT')!;
     await data(actor, 'GAME_ACTION', { revision: view.revision, action: { ...action, damage: 999, mana: 999 } });
     const next = snapshots.get(actor)!.game!; expect(next.players[view.you].lanes.some(Boolean)).toBe(true); expect(next.players[view.you].mana).toBeLessThan(view.players[view.you].maxMana);
+  });
+});
+
+describe('custom decks over multiplayer', () => {
+  it('uses each submitted deck, preserves host deck on reconnect, and keeps both lists private', async () => {
+    const custom = [...DECK]; custom[custom.indexOf('goblin')] = 'mage';
+    const guestDeck = [...DECK]; guestDeck[guestDeck.indexOf('poison')] = 'guardian';
+    const host = await connect(); const credentials = await data<RoomCredentials>(host, 'CREATE_ROOM', { deck: custom });
+    expect(snapshots.get(host)).not.toHaveProperty('playerDecks');
+    host.disconnect(); await new Promise(resolve => setTimeout(resolve, 20));
+    const resumed = await connect(); await data(resumed, 'RESUME_ROOM', credentials);
+    expect(snapshots.get(resumed)?.status).toBe('WAITING');
+    const guest = await connect(); await data(guest, 'JOIN_ROOM', { code: credentials.code, deck: guestDeck });
+    await new Promise(resolve => setTimeout(resolve, 15));
+    const expected = createGame(42, [custom, guestDeck]);
+    expect(snapshots.get(resumed)?.game).toEqual(viewFor(expected, 0));
+    expect(snapshots.get(guest)?.game).toEqual(viewFor(expected, 1));
+    for (const client of [resumed, guest]) {
+      const snapshot = snapshots.get(client)!;
+      expect(snapshot).not.toHaveProperty('playerDecks');
+      expect(snapshot.game).not.toHaveProperty('playerDecks');
+      for (const player of snapshot.game!.players) expect(player).not.toHaveProperty('deck');
+    }
+  });
+  it('rejects invalid create and join decks before allocating a seat, then accepts valid retries', async () => {
+    const host = await connect(); const guest = await connect();
+    const tooMany = [...DECK]; tooMany[tooMany.length - 1] = 'goblin';
+    const unknown = [...DECK] as string[]; unknown[0] = '__proto__';
+    for (const deck of [[], DECK.slice(1), [...DECK, 'mage'], tooMany, unknown, null, 'bad']) {
+      expect((await request(host, 'CREATE_ROOM', { deck })).ok).toBe(false);
+    }
+    const credentials = await data<RoomCredentials>(host, 'CREATE_ROOM', { deck: DECK });
+    for (const deck of [DECK.slice(1), tooMany, unknown, null]) {
+      expect((await request(guest, 'JOIN_ROOM', { code: credentials.code, deck })).ok).toBe(false);
+      expect(snapshots.get(host)?.status).toBe('WAITING');
+    }
+    await data(guest, 'JOIN_ROOM', { code: credentials.code, deck: DECK });
+    expect(snapshots.get(guest)?.status).toBe('PLAYING');
+  });
+  it('falls back independently to starter decks when a client omits its deck', async () => {
+    const custom = [...DECK]; custom[custom.indexOf('goblin')] = 'mage';
+    const host = await connect(); const guest = await connect();
+    const credentials = await data<RoomCredentials>(host, 'CREATE_ROOM', { deck: custom });
+    await data(guest, 'JOIN_ROOM', { code: credentials.code });
+    expect(snapshots.get(guest)?.game).toEqual(viewFor(createGame(42, [custom, DECK]), 1));
   });
 });

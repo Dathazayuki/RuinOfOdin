@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { Server, type Socket } from 'socket.io';
 import { z } from 'zod';
-import { applyAction, createGame, eventsFor, forfeit, viewFor, type GameEvent, type GameState, type PlayerId, type Reply, type RoomCredentials, type RoomSnapshot, type RoomStatus } from '@core-battle/shared';
+import { DECK, validateDeck, applyAction, createGame, eventsFor, forfeit, viewFor, type CardId, type GameEvent, type GameState, type PlayerId, type Reply, type RoomCredentials, type RoomSnapshot, type RoomStatus } from '@core-battle/shared';
 
 const currentDir = typeof __dirname !== 'undefined' ? __dirname : dirname(fileURLToPath(import.meta.url));
 
@@ -17,8 +17,13 @@ const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('USE_TACTIC_TOKEN') }),
 ]);
 const credentialsSchema = z.object({ code: z.string().regex(/^[A-Z0-9]{6}$/), token: z.string().length(48) });
+const deckSchema = z.array(z.string().max(40)).max(33).transform((cards, context): CardId[] => {
+  const result = validateDeck(cards as CardId[]);
+  if (!result.valid) { context.addIssue({ code: z.ZodIssueCode.custom, message: result.error ?? 'Invalid deck.' }); return z.NEVER; }
+  return cards as CardId[];
+});
 interface Seat { token: string; socketId: string | null; deadline: number | null }
-interface Room { code: string; status: RoomStatus; seats: [Seat, Seat?]; game: GameState | null; updated: number; reason?: string }
+interface Room { code: string; status: RoomStatus; seats: [Seat, Seat?]; playerDecks: [CardId[] | undefined, CardId[] | undefined]; game: GameState | null; updated: number; reason?: string }
 interface Session { code: string; player: PlayerId }
 export interface ServerOptions { clientUrl?: string; reconnectMs?: number; cleanupMs?: number; maxRooms?: number; seed?: () => number }
 
@@ -73,7 +78,7 @@ export function createBattleServer(options: ServerOptions = {}) {
   };
   const finishForfeit = (room: Room, player: PlayerId, reason: string) => {
     if (!room.game || room.game.phase === 'FINISHED') return;
-    const result = forfeit(room.game, player); room.game = result.state; room.status = 'FINISHED'; room.reason = reason;
+    const result = forfeit(room.game, player); room.game = result.state; room.status = 'FINISHED'; room.reason = reason; room.playerDecks = [undefined, undefined];
     for (const seat of room.seats) if (seat) seat.deadline = null;
     broadcast(room, result.events);
   };
@@ -86,8 +91,9 @@ export function createBattleServer(options: ServerOptions = {}) {
     if (!seat || seat.socketId !== socket.id) return;
     seat.socketId = null;
     if (intentional) {
+      room.playerDecks[session.player] = undefined;
       if (room.game?.phase === 'ACTION') finishForfeit(room, session.player, 'Opponent left the match.');
-      else if (!room.game) room.status = 'CLOSED';
+      else if (!room.game) { room.status = 'CLOSED'; room.playerDecks = [undefined, undefined]; }
       seat.token = ''; // An explicit leave revokes its resume credential.
     } else if (room.status !== 'FINISHED' && room.status !== 'CLOSED') {
       seat.deadline = Date.now() + reconnectMs; room.status = 'DISCONNECTED';
@@ -101,13 +107,13 @@ export function createBattleServer(options: ServerOptions = {}) {
         const expired = room.seats.findIndex(s => s?.deadline !== null && s?.deadline !== undefined && s.deadline <= now);
         if (expired >= 0) {
           if (room.game) finishForfeit(room, expired as PlayerId, 'Opponent did not reconnect in time.');
-          else { room.status = 'CLOSED'; broadcast(room); }
+          else { room.status = 'CLOSED'; room.playerDecks = [undefined, undefined]; broadcast(room); }
         }
       }
       // In-memory MVP rooms have bounded lifetimes; connected matches are not evicted.
       const empty = room.seats.every(s => !s?.socketId);
       if ((empty && now - room.updated > 60000) || (['WAITING', 'FINISHED', 'CLOSED'].includes(room.status) && now - room.updated > 30 * 60 * 1000)) {
-        room.status = 'CLOSED'; broadcast(room);
+        room.status = 'CLOSED'; room.playerDecks = [undefined, undefined]; broadcast(room);
         for (const seat of room.seats) if (seat?.socketId) sessions.delete(seat.socketId);
         rooms.delete(room.code);
       }
@@ -141,24 +147,26 @@ export function createBattleServer(options: ServerOptions = {}) {
         }
       });
     };
-    handle<RoomCredentials>('CREATE_ROOM', () => {
+    handle<RoomCredentials>('CREATE_ROOM', payload => {
+      const { deck } = z.object({ deck: deckSchema.optional() }).parse(payload ?? {});
       if (sessions.has(socket.id)) throw new Error('Leave your current room first.');
       if (rooms.size >= (options.maxRooms ?? 1000)) throw new Error('Server is full. Try again later.');
       let code: string; do { code = randomBytes(3).toString('hex').toUpperCase(); } while (rooms.has(code));
       const seat = newSeat(socket);
-      const room: Room = { code, status: 'WAITING', seats: [seat], game: null, updated: Date.now() };
+      const room: Room = { code, status: 'WAITING', seats: [seat], playerDecks: [deck ? [...deck] : [...DECK], undefined], game: null, updated: Date.now() };
       rooms.set(code, room); sessions.set(socket.id, { code, player: 0 }); broadcast(room);
       return { code, token: seat.token, player: 0 };
     });
     handle<RoomCredentials>('JOIN_ROOM', payload => {
       if (sessions.has(socket.id)) throw new Error('Leave your current room first.');
-      const { code } = z.object({ code: z.string().regex(/^[A-Z0-9]{6}$/) }).parse(payload);
+      const { code, deck } = z.object({ code: z.string().regex(/^[A-Z0-9]{6}$/), deck: deckSchema.optional() }).parse(payload);
       const room = rooms.get(code);
       if (!room || room.status === 'CLOSED') throw new Error('Room not found.');
       if (room.seats[1]) throw new Error('Room is full.');
       if (room.status !== 'WAITING') throw new Error('The host is disconnected. Try again shortly.');
+      room.playerDecks[1] = deck ? [...deck] : [...DECK];
       const seat = newSeat(socket); room.seats[1] = seat;
-      room.game = createGame(options.seed?.() ?? randomInt(0, 0xffffffff)); room.status = 'PLAYING';
+      room.game = createGame(options.seed?.() ?? randomInt(0, 0xffffffff), [room.playerDecks[0] ?? DECK, room.playerDecks[1] ?? DECK]); room.status = 'PLAYING';
       sessions.set(socket.id, { code, player: 1 }); broadcast(room);
       return { code, token: seat.token, player: 1 };
     });
@@ -171,7 +179,7 @@ export function createBattleServer(options: ServerOptions = {}) {
       const seat = room.seats[player]!;
       if (seat.deadline !== null && seat.deadline <= Date.now()) {
         if (room.game) finishForfeit(room, player, 'Reconnect timeout.');
-        else { room.status = 'CLOSED'; throw new Error('This room has expired.'); }
+        else { room.status = 'CLOSED'; room.playerDecks = [undefined, undefined]; throw new Error('This room has expired.'); }
       }
       const existing = sessions.get(socket.id);
       if (existing && (existing.code !== code || existing.player !== player)) throw new Error('Leave your current room first.');
@@ -190,7 +198,7 @@ export function createBattleServer(options: ServerOptions = {}) {
       // Unknown damage/mana/ownership fields are stripped. Actor comes from session.
       const result = applyAction(room.game, player, request.action);
       if (result.error) throw new Error(result.error);
-      room.game = result.state; if (room.game.phase === 'FINISHED') room.status = 'FINISHED';
+      room.game = result.state; if (room.game.phase === 'FINISHED') { room.status = 'FINISHED'; room.playerDecks = [undefined, undefined]; }
       broadcast(room, result.events); return undefined;
     });
     handle('FORFEIT', () => { const { room, player } = sessionRoom(socket); finishForfeit(room, player, 'Opponent conceded.'); return undefined; });

@@ -1,3 +1,5 @@
+> **Current gameplay (2026-09-07):** Fixed 5 mana, attacks at the end of each player turn except Turn 1, and customizable 30-card decks (max 3 copies). See [GAMEPLAY.md](GAMEPLAY.md) for the current rules and run instructions. The original design below is retained for reference.
+
 # 🎴 CORE BATTLE — Web Card Game
 
 A turn-based 3-lane card battle game for the Web.

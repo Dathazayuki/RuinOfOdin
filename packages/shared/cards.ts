@@ -29,3 +29,16 @@ export const DECK: readonly CardId[] = [
 export function coreArt(hp: number): string {
   return `CoreBase/${hp <= 0 ? 'Core_Destroyed' : hp <= 6 ? 'Core_Low_Hp' : hp <= 15 ? 'Core_Damaged' : 'Core_Idle'}.png`;
 }
+
+/** Shared deck contract used by engine, server and deck builder. */
+export function validateDeck(deck: readonly CardId[]): { valid: boolean; error?: string } {
+  if (!Array.isArray(deck) || deck.length !== 30) return { valid: false, error: 'Your deck must contain exactly 30 cards.' };
+  const counts = new Map<string, number>();
+  for (const id of deck) {
+    if (typeof id !== 'string' || !Object.hasOwn(CARDS, id)) return { valid: false, error: 'Your deck contains an unknown card.' };
+    const count = (counts.get(id) ?? 0) + 1;
+    if (count > 3) return { valid: false, error: 'A deck may contain at most 3 copies of each card.' };
+    counts.set(id, count);
+  }
+  return { valid: true };
+}

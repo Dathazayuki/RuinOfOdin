@@ -1,17 +1,21 @@
-import { CARDS, DECK } from '../cards';
-import type { ActionResult, GameAction, GameEvent, GameState, GameView, Lane, PlayerId, PlayerState, Unit } from '../types';
+import { CARDS, DECK, validateDeck } from '../cards';
+import type { ActionResult, CardId, GameAction, GameEvent, GameState, GameView, Lane, PlayerId, PlayerState, Unit } from '../types';
 import { seededRandom, shuffle } from './random';
 
 export const LANES: readonly Lane[] = [0, 1, 2];
 export const PLAYERS: readonly PlayerId[] = [0, 1];
 export const opponent = (id: PlayerId): PlayerId => id === 0 ? 1 : 0;
 
-export function createGame(seed: number): GameState {
+export function createGame(seed: number, decks: [readonly CardId[], readonly CardId[]] = [DECK, DECK]): GameState {
+  for (const deck of decks) {
+    const validation = validateDeck(deck);
+    if (!validation.valid) throw new Error(validation.error);
+  }
   const random = seededRandom(seed);
   const firstPlayer: PlayerId = random() < 0.5 ? 0 : 1;
   const players = PLAYERS.map((id): PlayerState => {
-    const deck = shuffle(DECK.map((cardId, i) => ({ id: `${id}-${i}`, cardId })), random);
-    return { coreHp: 30, mana: id === firstPlayer ? 1 : 0, maxMana: id === firstPlayer ? 1 : 0, tacticToken: false, hand: deck.splice(0, 4), deck, discard: [], lanes: [null, null, null] };
+    const deck = shuffle(decks[id].map((cardId, i) => ({ id: `${id}-${i}`, cardId })), random);
+    return { coreHp: 30, mana: id === firstPlayer ? 5 : 0, maxMana: 5, tacticToken: false, hand: deck.splice(0, 4), deck, discard: [], lanes: [null, null, null] };
   }) as [PlayerState, PlayerState];
   const state: GameState = { round: 1, firstPlayer, activePlayer: firstPlayer, phase: 'ACTION', winner: null, players, revision: 0 };
   draw(state, firstPlayer, []);
@@ -56,7 +60,7 @@ function checkWinner(state: GameState, events: GameEvent[]): void {
 }
 export function canAttack(unit: Unit, round: number): boolean {
   if (round === 1) return false;
-  return unit.hp > 0 && unit.summonedRound < round && !unit.statuses.some(s => s.type === 'FREEZE');
+  return unit.hp > 0 && !unit.statuses.some(s => s.type === 'FREEZE');
 }
 
 function combat(state: GameState, events: GameEvent[]): void {
@@ -143,8 +147,8 @@ function combat(state: GameState, events: GameEvent[]): void {
     state.round++;
     state.activePlayer = defender;
     const next = state.players[state.activePlayer];
-    next.maxMana = Math.min(10, state.round);
-    next.mana = next.maxMana;
+    next.maxMana = 5;
+    next.mana = 5;
     draw(state, state.activePlayer, events);
     events.push({ type: 'ROUND_STARTED', round: state.round, player: state.activePlayer });
   }

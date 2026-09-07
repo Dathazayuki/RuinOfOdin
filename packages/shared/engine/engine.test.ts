@@ -7,7 +7,7 @@ import { seededRandom, shuffle } from './random';
 
 function setup(): GameState {
   const s = createGame(42); s.firstPlayer = 0; s.activePlayer = 0; s.round = 5;
-  for (const p of s.players) { p.mana = 10; p.maxMana = 5; p.hand = []; }
+  for (const p of s.players) { p.mana = 5; p.maxMana = 5; p.hand = []; }
   return s;
 }
 function unit(s: GameState, p: PlayerId, lane: Lane, cardId: CardId, extra: Partial<Unit> = {}): Unit {
@@ -37,8 +37,8 @@ describe('initialization and resources', () => {
     expect(s.players[first].deck).toHaveLength(25);
     expect(s.players[second].hand).toHaveLength(4);
     expect(s.players[second].deck).toHaveLength(26);
-    expect(s.players[first].mana).toBe(1);
-    expect(s.players[first].maxMana).toBe(1);
+    expect(s.players[first].mana).toBe(5);
+    expect(s.players[first].maxMana).toBe(5);
     expect(s.round).toBe(1);
     expect(s.players[0].tacticToken).toBe(false);
     expect(s.players[1].tacticToken).toBe(false);
@@ -48,16 +48,16 @@ describe('initialization and resources', () => {
     expect(new Set(Array.from({ length: 50 }, (_, seed) => createGame(seed).firstPlayer)).size).toBe(2);
     expect(shuffle(DECK, seededRandom(9)).sort()).toEqual([...DECK].sort());
   });
-  it('TC-011/012/013/130 sequential turns, mana progression and capped mana', () => {
+  it('TC-011/012/013/130 sequential turns, fixed five mana on every turn', () => {
     let s = createGame(3); const first = s.firstPlayer; const second = opponent(first);
-    expect(s.round).toBe(1); expect(s.activePlayer).toBe(first); expect(s.players[first].mana).toBe(1);
+    expect(s.round).toBe(1); expect(s.activePlayer).toBe(first); expect(s.players[first].mana).toBe(5);
     s = endTurn(s).state;
-    expect(s.round).toBe(2); expect(s.activePlayer).toBe(second); expect(s.players[second].mana).toBe(2);
+    expect(s.round).toBe(2); expect(s.activePlayer).toBe(second); expect(s.players[second].mana).toBe(5);
     s = endTurn(s).state;
-    expect(s.round).toBe(3); expect(s.activePlayer).toBe(first); expect(s.players[first].mana).toBe(3);
+    expect(s.round).toBe(3); expect(s.activePlayer).toBe(first); expect(s.players[first].mana).toBe(5);
     while (s.round < 11) s = endTurn(s).state;
     expect(s.round).toBe(11);
-    for (const p of s.players) { expect(p.maxMana).toBe(10); }
+    for (const p of s.players) { expect(p.maxMana).toBe(5); }
   });
   it('TC-021 draws every turn, burns overflow, handles empty deck', () => {
     let s = createGame(8); const p0 = s.firstPlayer;
@@ -84,8 +84,8 @@ describe('initialization and resources', () => {
 describe('placement and combat', () => {
   it('TC-030 places a unit, spends real cost and preserves input', () => {
     const s = setup(); const r = play(s, 'goblin');
-    expect(r.state.players[0].lanes[0]?.cardId).toBe('goblin'); expect(r.state.players[0].mana).toBe(9); expect(r.state.players[0].hand).toHaveLength(0);
-    expect(s.players[0].mana).toBe(10); expect(s.players[0].lanes[0]).toBeNull();
+    expect(r.state.players[0].lanes[0]?.cardId).toBe('goblin'); expect(r.state.players[0].mana).toBe(4); expect(r.state.players[0].hand).toHaveLength(0);
+    expect(s.players[0].mana).toBe(5); expect(s.players[0].lanes[0]).toBeNull();
   });
   it('places assassin, spends 2 mana, attacks for 4 and has 2 HP', () => {
     const s = setup();
@@ -93,7 +93,7 @@ describe('placement and combat', () => {
     expect(r.state.players[0].lanes[1]?.cardId).toBe('assassin');
     expect(r.state.players[0].lanes[1]?.attack).toBe(4);
     expect(r.state.players[0].lanes[1]?.hp).toBe(2);
-    expect(r.state.players[0].mana).toBe(8);
+    expect(r.state.players[0].mana).toBe(3);
   });
   it('TC-031/140/182 rejects invalid lane, occupancy, ownership, phase and mana atomically', () => {
     const s = setup(); unit(s, 0, 0, 'knight'); const r = play(s, 'goblin');
@@ -101,11 +101,11 @@ describe('placement and combat', () => {
     expect(applyAction(s, 1, { type: 'END_PHASE' }).error).toBeTruthy();
     expect(applyAction(s, 0, { type: 'PLAY_UNIT', cardInstanceId: 'stolen', lane: 1 }).error).toBeTruthy();
     s.players[0].mana = 0; expect(play(s, 'mage', undefined, 1).error).toBeTruthy();
-    s.players[0].mana = 10; expect(play(s, 'mage', undefined, 9 as Lane).error).toBeTruthy();
+    s.players[0].mana = 5; expect(play(s, 'mage', undefined, 9 as Lane).error).toBeTruthy();
   });
   it('TC-040 Turn 1 units cannot attack; units attack on subsequent turns', () => {
     let s = createGame(1); const first = s.firstPlayer; const second = opponent(first);
-    // Turn 1: First player summons a goblin (cost 1, starting mana 1)
+    // Turn 1: First player summons a goblin (cost 1, starting mana 5)
     s = play(s, 'goblin', undefined, 0).state;
     expect(s.players[first].lanes[0]?.cardId).toBe('goblin');
     expect(s.players[first].lanes[0]?.summonedRound).toBe(1);
@@ -189,9 +189,9 @@ describe('spells and status timing', () => {
     expect(r.state.players[1].lanes.map(u => u?.hp ?? null)).toEqual([null, 2, null]);
     const types = r.events.map(e => e.type); expect(types.lastIndexOf('DAMAGE_DEALT')).toBeLessThan(types.indexOf('UNIT_DIED'));
   });
-  it('TC-100 Mage battlecry kills immediately, never hits core, mage remains sick', () => {
+  it('TC-100 Mage battlecry kills immediately, never hits core, mage attacks immediately after Turn 1', () => {
     const s = setup(); unit(s, 1, 0, 'goblin'); const r = play(s, 'mage'); expect(r.state.players[1].lanes[0]).toBeNull();
-    expect(endTurn(r.state).state.players[1].coreHp).toBe(30); expect(play(setup(), 'mage').state.players[1].coreHp).toBe(30);
+    expect(endTurn(r.state).state.players[1].coreHp).toBe(25); expect(play(setup(), 'mage').state.players[1].coreHp).toBe(30);
   });
 });
 

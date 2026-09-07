@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import { io, type Socket } from 'socket.io-client';
-import { applyAction, chooseBotAction, createGame, eventsFor, forfeit, legalActions, seededRandom, viewFor, type GameAction, type GameEvent, type GameState, type GameView, type Reply, type RoomCredentials, type RoomSnapshot } from '@core-battle/shared';
+import { DECK, validateDeck, applyAction, chooseBotAction, createGame, eventsFor, forfeit, legalActions, seededRandom, viewFor, type CardId, type GameAction, type GameEvent, type GameState, type GameView, type Reply, type RoomCredentials, type RoomSnapshot } from '@core-battle/shared';
 import { playSounds, unlockAudio } from './sound';
+import { loadCustomDeck, saveCustomDeck } from './deckStorage';
 
 interface Store {
+  customDeck: CardId[]; deckBuilderOpen: boolean;
+  setCustomDeck: (deck: CardId[]) => void; openDeckBuilder: () => void; closeDeckBuilder: () => void;
   mode: 'menu' | 'bot' | 'room'; difficulty: 'easy' | 'normal'; local: GameState | null; view: GameView | null; room: RoomSnapshot | null;
   connected: boolean; busy: boolean; error: string | null; events: GameEvent[]; log: { id: number; event: GameEvent }[]; batch: number; sound: boolean;
   startBot: (difficulty: 'easy' | 'normal') => void; botStep: () => void; act: (action: GameAction) => void;
@@ -63,6 +66,8 @@ async function connect() {
   });
 }
 async function roomOperation(event: 'CREATE_ROOM' | 'JOIN_ROOM', payload: unknown) {
+  const validation = validateDeck(useGame.getState().customDeck);
+  if (!validation.valid) { useGame.setState({ deckBuilderOpen: true, error: validation.error }); return; }
   unlockAudio(); useGame.setState({ busy: true, error: null, log: [], events: [] });
   try { await connect(); saveCredentials(await request<RoomCredentials>(event, payload)); }
   catch (e) { useGame.setState({ error: e instanceof Error ? e.message : 'Connection failed.' }); }
@@ -70,11 +75,21 @@ async function roomOperation(event: 'CREATE_ROOM' | 'JOIN_ROOM', payload: unknow
 }
 
 export const useGame = create<Store>((set, get) => ({
+  customDeck: loadCustomDeck(), deckBuilderOpen: false,
+  openDeckBuilder: () => set({ deckBuilderOpen: true }), closeDeckBuilder: () => set({ deckBuilderOpen: false }),
+  setCustomDeck: deck => {
+    const validation = validateDeck(deck);
+    if (!validation.valid) { set({ error: validation.error, deckBuilderOpen: true }); return; }
+    const saved = saveCustomDeck(deck);
+    set({ customDeck: [...deck], deckBuilderOpen: false, error: saved ? null : 'Deck ready for this session. Browser storage is unavailable, so it cannot be saved after closing.' });
+  },
   mode: 'menu', difficulty: 'normal', local: null, view: null, room: null, connected: false, busy: false, error: null, events: [], log: [], batch: 0, sound: false,
   startBot: difficulty => {
+    const validation = validateDeck(get().customDeck);
+    if (!validation.valid) { set({ deckBuilderOpen: true, error: validation.error }); return; }
     unlockAudio();
     const seed = crypto.getRandomValues(new Uint32Array(1))[0]!; random = seededRandom(seed ^ 0xa5a5a5a5);
-    const local = createGame(seed);
+    const local = createGame(seed, [get().customDeck, DECK]);
     set({ mode: 'bot', difficulty, local, view: viewFor(local, 0), room: null, error: null, events: [], log: [], batch: 0, busy: false });
   },
   botStep: () => {
@@ -97,7 +112,7 @@ export const useGame = create<Store>((set, get) => ({
       void request('GAME_ACTION', { action, revision: view.revision }).catch((e: Error) => set({ error: e.message })).finally(() => set({ busy: false }));
     }
   },
-  createRoom: () => roomOperation('CREATE_ROOM', {}), joinRoom: code => roomOperation('JOIN_ROOM', { code: code.trim().toUpperCase() }),
+  createRoom: () => roomOperation('CREATE_ROOM', { deck: [...get().customDeck] }), joinRoom: code => roomOperation('JOIN_ROOM', { code: code.trim().toUpperCase(), deck: [...get().customDeck] }),
   leave: async () => {
     const { mode } = get();
     if (mode === 'room' && socket?.connected) {
