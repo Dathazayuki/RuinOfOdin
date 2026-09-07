@@ -18,12 +18,19 @@ export function chooseBotAction(state: GameState, player: PlayerId, difficulty: 
   const actions = legalActions(state, player);
   if (!actions.length) return { type: 'END_PHASE' };
   const useful = actions.filter(a => {
+    if (a.type === 'PLAY_UNIT') return true;
     if (a.type !== 'CAST_SPELL') return true;
     const card = state.players[player].hand.find(c => c.id === a.cardInstanceId)!;
     const target = state.players.flatMap(p => p.lanes).find(u => u?.id === a.targetId);
     if (card.cardId === 'heal') return !!target && target.hp < target.maxHp;
     if (card.cardId === 'fireball') return state.players[opponent(player)].lanes.some(u => u?.id === a.targetId);
     if (card.cardId === 'lightning') return state.players[opponent(player)].lanes.some(Boolean);
+    if (card.cardId === 'debuffcleanse') return !!target && target.statuses.length > 0;
+    if (card.cardId === 'drawcard') return state.players[player].hand.length < 7 && state.players[player].deck.length > 0;
+    if (card.cardId === 'figure') return !!target && target.hp >= 2;
+    if (card.cardId === 'gainatk') return !!target;
+    if (card.cardId === 'gainmana') return true;
+    if (card.cardId === 'healcore') return state.players[player].coreHp <= 26;
     return !target?.statuses.some(s => s.type.toLowerCase() === card.cardId);
   });
   if (difficulty === 'easy') {

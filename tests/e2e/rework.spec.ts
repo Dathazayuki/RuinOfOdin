@@ -21,7 +21,7 @@ test('deck builder enforces limits, saves edits, resets and cancels without savi
   await assertImages(page);
   await page.screenshot({ path: testInfo.outputPath('lobby-desktop.png') });
   await page.getByRole('button', { name: 'Edit Deck' }).click();
-  await expect(page.locator('.builder-card')).toHaveCount(11);
+  await expect(page.locator('.builder-card')).toHaveCount(23);
   await expect(page.getByRole('button', { name: 'Add Goblin', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Remove Goblin', exact: true }).click();
   await expect(page.locator('.deck-count')).toHaveText('29 / 30 Cards');
@@ -91,8 +91,8 @@ test('custom multiplayer decks, turn-one protection, immediate turn-two attack a
   for (const page of pages) page.on('pageerror', error => errors.push(error.message));
   try {
     // Different legal decks also exercise independent per-player storage/payloads.
-    const hostDeck = [...DECK.filter(id => id !== 'heal'), 'guardian', 'mage', 'mage'];
-    const guestDeck = [...DECK.filter(id => id !== 'poison'), 'guardian', 'mage', 'mage'];
+    const hostDeck = DECK.map((id, i) => i === 0 ? 'assassin' : id);
+    const guestDeck = DECK.map((id, i) => i === 1 ? 'lancer' : id);
     await seedDeck(host, hostDeck);
     await seedDeck(guest, guestDeck);
     await host.getByRole('button', { name: 'Create a room' }).click();

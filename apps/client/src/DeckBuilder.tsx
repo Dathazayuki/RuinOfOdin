@@ -7,6 +7,7 @@ import { useGame } from './store';
 export function DeckBuilder() {
   const { customDeck, setCustomDeck, closeDeckBuilder } = useGame();
   const [draft, setDraft] = useState<CardId[]>(() => [...customDeck]);
+  const [tab, setTab] = useState<'ALL' | 'UNIT' | 'SPELL'>('ALL');
   const dialog = useRef<HTMLElement>(null);
   const validation = validateDeck(draft);
   const units = draft.filter(id => CARDS[id].type === 'UNIT').length;
@@ -36,18 +37,25 @@ export function DeckBuilder() {
 
   const remove = (id: CardId) => setDraft(cards => { const index = cards.indexOf(id); return index < 0 ? cards : cards.filter((_, i) => i !== index); });
   const add = (id: CardId) => setDraft(cards => cards.filter(c => c === id).length >= 3 ? cards : [...cards, id]);
+  const allCards = Object.values(CARDS);
+  const visibleCards = allCards.filter(c => tab === 'ALL' || c.type === tab);
 
   return <div className="modal-backdrop" onClick={closeDeckBuilder}>
     <section ref={dialog} tabIndex={-1} className="modal collection deck-builder" role="dialog" aria-modal="true" aria-labelledby="deck-builder-title" onClick={e => e.stopPropagation()}>
       <button className="icon-button modal-close" onClick={closeDeckBuilder} aria-label="Close deck builder"><X /></button>
       <span className="eyebrow">YOUR CARDS. YOUR STRATEGY.</span>
       <h2 id="deck-builder-title">Deck Builder</h2>
-      <p>Choose exactly 30 cards from 11 types. Up to 3 copies of each card. Your saved deck is used for Solo and Multiplayer.</p>
+      <p>Choose exactly 30 cards from 23 types. Up to 3 copies of each card. Your saved deck is used for Solo and Multiplayer.</p>
       <div className="deck-summary" aria-live="polite">
         <strong className={`deck-count ${validation.valid ? 'valid' : 'invalid'}`}>{draft.length} / 30 Cards</strong>
         <span>{units} Units</span><span>{draft.length - units} Spells</span><span>Avg. mana: {average}</span>
       </div>
-      <div className="collection-grid builder-grid">{Object.values(CARDS).map(card => {
+      <div className="builder-filter-tabs" role="tablist" aria-label="Filter cards">
+        <button role="tab" aria-selected={tab === 'ALL'} className={`tab-button ${tab === 'ALL' ? 'active' : ''}`} onClick={() => setTab('ALL')}>All (23)</button>
+        <button role="tab" aria-selected={tab === 'UNIT'} className={`tab-button ${tab === 'UNIT' ? 'active' : ''}`} onClick={() => setTab('UNIT')}>Units (12)</button>
+        <button role="tab" aria-selected={tab === 'SPELL'} className={`tab-button ${tab === 'SPELL' ? 'active' : ''}`} onClick={() => setTab('SPELL')}>Spells (11)</button>
+      </div>
+      <div className="collection-grid builder-grid">{visibleCards.map(card => {
         const count = draft.filter(id => id === card.id).length;
         return <div key={card.id} className="builder-card">
           <Card compact card={{ id: card.id, cardId: card.id }} />

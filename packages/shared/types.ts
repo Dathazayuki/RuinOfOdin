@@ -1,15 +1,37 @@
 export type PlayerId = 0 | 1;
 export type Lane = 0 | 1 | 2;
-export type CardId = 'goblin' | 'assassin' | 'archer' | 'knight' | 'guardian' | 'mage' | 'fireball' | 'freeze' | 'lightning' | 'heal' | 'poison';
+export type CardId =
+  | 'goblin' | 'assassin' | 'archer' | 'knight' | 'guardian' | 'mage'
+  | 'berserker' | 'clown' | 'golem' | 'lancer' | 'rider' | 'skeleton'
+  | 'fireball' | 'freeze' | 'lightning' | 'heal' | 'poison'
+  | 'debuffcleanse' | 'drawcard' | 'figure' | 'gainatk' | 'gainmana' | 'healcore';
 export type StatusType = 'FREEZE' | 'POISON';
 export interface StatusEffect { type: StatusType; remainingCombatPhases: number }
-export interface CardDefinition { id: CardId; name: string; type: 'UNIT' | 'SPELL'; cost: number; attack: number; hp: number; description: string; art: string }
+export interface CardDefinition {
+  id: CardId;
+  name: string;
+  type: 'UNIT' | 'SPELL';
+  cost: number;
+  attack: number;
+  hp: number;
+  description: string;
+  art: string;
+  spellTarget?: 'NONE' | 'FRIENDLY_UNIT' | 'ENEMY_UNIT' | 'ANY_UNIT';
+}
 export interface CardInstance { id: string; cardId: CardId }
-export interface Unit extends CardInstance { attack: number; hp: number; maxHp: number; summonedRound: number; statuses: StatusEffect[] }
+export interface Unit extends CardInstance {
+  attack: number;
+  hp: number;
+  maxHp: number;
+  summonedRound: number;
+  statuses: StatusEffect[];
+  revived?: boolean;
+  cannotAttack?: boolean;
+}
 export interface PlayerState { coreHp: number; mana: number; maxMana: number; tacticToken: boolean; hand: CardInstance[]; deck: CardInstance[]; discard: CardInstance[]; lanes: [Unit | null, Unit | null, Unit | null] }
 export interface GameState { round: number; firstPlayer: PlayerId; activePlayer: PlayerId; phase: 'ACTION' | 'FINISHED'; winner: PlayerId | 'DRAW' | null; players: [PlayerState, PlayerState]; revision: number }
 export type GameAction =
-  | { type: 'PLAY_UNIT'; cardInstanceId: string; lane: Lane }
+  | { type: 'PLAY_UNIT'; cardInstanceId: string; lane: Lane; targetId?: string }
   | { type: 'CAST_SPELL'; cardInstanceId: string; targetId?: string }
   | { type: 'END_PHASE' }
   | { type: 'USE_TACTIC_TOKEN' };

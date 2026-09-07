@@ -4,7 +4,7 @@ import type { CardId, GameState, Unit } from '../types';
 import { applyAction, canAttack, createGame, opponent } from './index';
 import { chooseBotAction } from './bot';
 
-const custom = (): CardId[] => DECK.map(id => id === 'poison' ? 'mage' : id).filter((id, index, deck) => id !== 'mage' || deck.slice(0, index).filter(c => c === 'mage').length < 3).concat('guardian');
+const custom = (): CardId[] => { const d = [...DECK]; d[d.length - 1] = 'assassin'; return d; };
 const end = (state: GameState) => applyAction(state, state.activePlayer, { type: 'END_PHASE' }).state;
 const summon = (state: GameState, cardId: CardId, lane: 0 | 1 | 2 = 0) => {
   const id = `fixture-${state.round}-${lane}`;
@@ -15,7 +15,7 @@ const summon = (state: GameState, cardId: CardId, lane: 0 | 1 | 2 = 0) => {
 
 describe('deck construction contract', () => {
   it('default and customized decks contain 30 cards with at most three copies', () => {
-    expect(Object.keys(CARDS)).toHaveLength(11);
+    expect(Object.keys(CARDS)).toHaveLength(23);
     expect(validateDeck(DECK)).toEqual({ valid: true });
     expect(custom()).toHaveLength(30);
     expect(validateDeck(custom())).toEqual({ valid: true });

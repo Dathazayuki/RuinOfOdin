@@ -11,7 +11,7 @@ import { DECK, validateDeck, applyAction, createGame, eventsFor, forfeit, viewFo
 const currentDir = typeof __dirname !== 'undefined' ? __dirname : dirname(fileURLToPath(import.meta.url));
 
 const actionSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('PLAY_UNIT'), cardInstanceId: z.string().max(80), lane: z.union([z.literal(0), z.literal(1), z.literal(2)]) }),
+  z.object({ type: z.literal('PLAY_UNIT'), cardInstanceId: z.string().max(80), lane: z.union([z.literal(0), z.literal(1), z.literal(2)]), targetId: z.string().max(80).optional() }),
   z.object({ type: z.literal('CAST_SPELL'), cardInstanceId: z.string().max(80), targetId: z.string().max(80).optional() }),
   z.object({ type: z.literal('END_PHASE') }),
   z.object({ type: z.literal('USE_TACTIC_TOKEN') }),

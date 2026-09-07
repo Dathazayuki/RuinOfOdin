@@ -165,6 +165,11 @@ button,input{font:inherit}button{cursor:pointer;transition:background .18s,borde
 .unit-effects span{padding:2px 4px;border-radius:2px;background:#1e2c48;color:#cbd5e1;font-size:6px;letter-spacing:.5px;line-height:1.4;border:1px solid #334a75}
 .unit-effects .freeze{background:#0c4a6e;color:#bae6fd;border-color:#38bdf8}
 .unit-effects .poison{background:#4c1d95;color:#e9d5ff;border-color:#a855f7}
+.unit-effects .taunt{background:#854d0e;color:#fef08a;border-color:#eab308}
+.unit-effects .sneak{background:#701a75;color:#f5d0fe;border-color:#d946ef}
+.unit-effects .undying{background:#7f1d1d;color:#fecaca;border-color:#ef4444}
+.unit-effects .revived{background:#14532d;color:#bbf7d0;border-color:#22c55e}
+.unit-effects .decoy{background:#374151;color:#e5e7eb;border-color:#9ca3af}
 .board-unit.frozen{border-color:#38bdf8;box-shadow:0 0 20px rgba(56,189,248,.4)}
 .board-unit.poisoned{border-color:#a855f7;box-shadow:0 0 20px rgba(168,85,247,.35)}
 .damage-number{position:absolute;left:40%;top:15%;font-size:26px;font-weight:800;color:#ffb099;text-shadow:0 2px 4px #000;z-index:5;pointer-events:none}
